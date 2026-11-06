@@ -3,7 +3,7 @@ import pandas as pd
 
 INIT_PROMPT = "general img; "
 NAS = [
-    "style", "person_count", "gender", "species", "hair_color", "hair_length", "hair_style",
+    "style", "person_count", "gender", "hair_color", "hair_length", "hair_style",
     "eye_color","body_type", "clothing", "accessory", "background", "pose", "expression", "composition",
     "gaze", "sex_act"
 ]
