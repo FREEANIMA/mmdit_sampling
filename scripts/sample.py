@@ -21,6 +21,8 @@ class Sampling:
         self.device = "cuda"
         self.dtype=torch.bfloat16
         self.f, self.in_channels, self.patch_size = 32, 32, 2
+        self.model = load_mmdit_dcae()
+        self.model = self.model.to(device=self.device, dtype=self.dtype)   # prepare_offload 대신
 
     def sigma_schedular(self, step, device):
         t = torch.linspace(1.0, 0.0, step + 1, device=device)
@@ -62,16 +64,14 @@ class Sampling:
         
     @torch.inference_mode()
     def steps_sampling(self, x, steps, caculate_type, cfg_scale, cond_emb, uncond_emb, cond_mask, uncond_mask, gen, sigmas):
-        model = load_mmdit_dcae()
-        model = model.to(device=self.device, dtype=self.dtype)   # prepare_offload 대신
-        model.eval()
+        self.model.eval()
         
         try:
             for i in tqdm(range(steps), desc="sampling"):
                 sigma, sigma_next = sigmas[i], sigmas[i + 1]
 
                 v = self.predict(
-                    model=model,
+                    model=self.model,
                     x=x, sigma=sigma,
                     cond_emb=cond_emb, cond_mask=cond_mask,
                     uncond_emb=uncond_emb, uncond_mask=uncond_mask,
@@ -91,7 +91,7 @@ class Sampling:
                         x_e = euler(x, v, sigma, sigma_next)
 
                         v2 = self.predict(
-                            model=model,
+                            model=self.model,
                             x=x_e, sigma=sigma_next,
                             cond_emb=cond_emb, cond_mask=cond_mask,
                             uncond_emb=uncond_emb, uncond_mask=uncond_mask,
@@ -115,7 +115,6 @@ class Sampling:
                 del v
 
         finally:
-            del model
             torch.cuda.empty_cache()
 
         return x
