@@ -24,7 +24,7 @@ class Sampling:
         self.model = load_mmdit_dcae()
         self.model = self.model.to(device=self.device, dtype=self.dtype)   # prepare_offload 대신
         self.text_encoder = T5TextModel(device=self.device, dtype=self.dtype)
-        self.vae = VaeModel(device=self.device, dtype=self.dtype)
+        self.vae = VaeModel(device=self.device, dtype=torch.float32)
 
     def sigma_schedular(self, step, device):
         t = torch.linspace(1.0, 0.0, step + 1, device=device)
