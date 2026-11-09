@@ -23,6 +23,8 @@ class Sampling:
         self.f, self.in_channels, self.patch_size = 32, 32, 2
         self.model = load_mmdit_dcae()
         self.model = self.model.to(device=self.device, dtype=self.dtype)   # prepare_offload 대신
+        self.text_encoder = T5TextModel(device=self.device, dtype=self.dtype)
+        self.vae = VaeModel(device=self.device, dtype=self.dtype)
 
     def sigma_schedular(self, step, device):
         t = torch.linspace(1.0, 0.0, step + 1, device=device)
@@ -46,19 +48,8 @@ class Sampling:
 
     @torch.inference_mode()
     def text_encode(self, tags):
-        text_encoder = T5TextModel(device="cpu")
-
-        cond_emb, cond_mask = text_encoder.encoder(tags)
-        uncond_emb, uncond_mask = text_encoder.encoder([INIT_PROMPT])
-
-        cond_emb = cond_emb.to(device=self.device, dtype=self.dtype)
-        cond_mask = cond_mask.to(device=self.device)
-
-        uncond_emb = uncond_emb.to(device=self.device, dtype=self.dtype)
-        uncond_mask = uncond_mask.to(device=self.device)
-
-        del text_encoder
-        torch.cuda.empty_cache()
+        cond_emb, cond_mask = self.text_encoder.encoder(tags)
+        uncond_emb, uncond_mask = self.text_encoder.encoder([INIT_PROMPT])
 
         return cond_emb, uncond_emb, cond_mask, uncond_mask
         
@@ -121,14 +112,10 @@ class Sampling:
     
     @torch.inference_mode()
     def vae_encode(self, x):
-        vae = VaeModel(device="cpu", dtype=torch.float32)
         with torch.inference_mode():
-            decoded = vae.decoder(x)        
+            decoded = self.vae.decoder(x)        
 
-        img = vae._tensor_to_pil(decoded)
-
-        del vae, decoded
-        torch.cuda.empty_cache()
+        img = self.vae._tensor_to_pil(decoded)
         return img
 
     @torch.inference_mode()
