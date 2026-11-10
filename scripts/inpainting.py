@@ -12,6 +12,7 @@ from .resize_worker import img_resize
 from .draw_colab import draw_mask_colab
 from common import T5TextModel, VaeModel
 import traceback
+from PIL import Image
 
 INIT_PROMPT = "general img; "
 
@@ -151,7 +152,8 @@ class InPaint:
                 img_bytes = f.read()
 
             arr, H, W = img_resize(img_bytes, 1024, 2, 32)
-            mask_arr = draw_mask_colab(arr, brush=30)
+            img_pil = Image.fromarray(arr)
+            mask_arr = draw_mask_colab(img_pil, brush=30)
 
             img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
             img = img.to(device=self.device, dtype=self.dtype)
