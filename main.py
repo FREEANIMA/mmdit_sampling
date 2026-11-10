@@ -22,5 +22,5 @@ if __name__ == "__main__":
     ROOT = get_root()
     hf_login()
 
-    from app.ui_colab import run_ui
+    from app.cli import run_ui
     run_ui(base_root=ROOT)
