@@ -1,12 +1,11 @@
 # main.py
 import os
 from huggingface_hub import login
-from app.cli import main
 
 COLAB_ROOT = "/content/drive/MyDrive/model/mmdit_sampling"
 
 def get_root():
-    if os.path.exists("/content"):          # 코랩 환경
+    if os.path.exists("/content"):
         from google.colab import drive
         if not os.path.exists("/content/drive/MyDrive"):
             drive.mount("/content/drive")
@@ -22,4 +21,6 @@ def hf_login():
 if __name__ == "__main__":
     ROOT = get_root()
     hf_login()
-    main(base_root=ROOT)
+
+    from app.ui_colab import run_ui
+    run_ui(base_root=ROOT)

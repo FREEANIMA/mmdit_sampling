@@ -202,7 +202,7 @@ class Sampling:
 
 
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        save_dir = os.path.join(self.base_root, "temp", stamp)
+        save_dir = os.path.join(self.base_root, "generation", stamp)
         os.makedirs(save_dir, exist_ok=True)
         save_img_name = os.path.join(save_dir, "img.png")
 

@@ -9,3 +9,5 @@ pyarrow
 sentencepiece 
 tiktoken
 protobuf
+opencv-python
+matplotlib
