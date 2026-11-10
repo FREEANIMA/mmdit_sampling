@@ -1,8 +1,11 @@
-from .cli import main
-from .handler import generate, get_sampler
+# app/__init__.py
+from .cli import run_ui
+from .handler import generate_txt2img, generate_inpainting, get_sampler, get_inpainter
 
 __all__ = [
-    "main",
-    "generate",
-    "get_sampler"
+    "run_ui",
+    "generate_txt2img",
+    "generate_inpainting",
+    "get_sampler",
+    "get_inpainter",
 ]
