@@ -10,6 +10,9 @@ from tqdm.auto import tqdm
 from datetime import datetime
 from common import T5TextModel
 from common import VaeModel
+from .attn_stats import (
+    attn_summary, tag_attn_map, stack_log
+)
 
 INIT_PROMPT = "general img; "
 
@@ -36,16 +39,22 @@ class Sampling:
         return max(round(v / unit), 1) * unit
 
     @torch.inference_mode()
-    def predict(self, model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale):
+    def predict(self, model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale, collect=False):
         x_in = x.to(self.dtype)
         sig = sigma.expand(x.shape[0])
         with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-            cond_out, _ = model.forward(x=x_in, sigma=sig, txt_emb=cond_emb, txt_mask=cond_mask)
+            cond_out, cond_stats = model.forward(
+                x=x_in, sigma=sig, txt_emb=cond_emb, txt_mask=cond_mask,
+                attn_collects_stats=collect,
+            )
             if cfg_scale == 1.0:
-                return cond_out.float()
-            uncond_out, _ = model.forward(x=x_in, sigma=sig, txt_emb=uncond_emb, txt_mask=uncond_mask)
+                return cond_out.float(), cond_stats
+            uncond_out, _ = model.forward(
+                x=x_in, sigma=sig, txt_emb=uncond_emb, txt_mask=uncond_mask,
+                attn_collects_stats=False,   # uncond는 통계 불필요 -> SDPA 경로(빠름)
+            )
         c, u = cond_out.float(), uncond_out.float()
-        return u + cfg_scale * (c - u)
+        return u + cfg_scale * (c - u), cond_stats
 
     @torch.inference_mode()
     def text_encode(self, tags):
@@ -55,20 +64,36 @@ class Sampling:
         return cond_emb, uncond_emb, cond_mask, uncond_mask
         
     @torch.inference_mode()
-    def steps_sampling(self, x, steps, caculate_type, cfg_scale, cond_emb, uncond_emb, cond_mask, uncond_mask, gen, sigmas):
+    def steps_sampling(self, x, steps, caculate_type, cfg_scale, cond_emb, uncond_emb,
+                       cond_mask, uncond_mask, gen, sigmas, collect_stats=False):
         self.model.eval()
+
+        MAX = self.model.max_side
+        n_txt = int(cond_mask.sum().item())
+        h_tok, w_tok = x.shape[2] // self.patch_size, x.shape[3] // self.patch_size
+        log = []   # log[step] = {"step", "sigma", "blocks": {block: summary}}
         
         try:
             for i in tqdm(range(steps), desc="sampling"):
                 sigma, sigma_next = sigmas[i], sigmas[i + 1]
 
-                v = self.predict(
+                v, stats = self.predict(
                     model=self.model,
                     x=x, sigma=sigma,
                     cond_emb=cond_emb, cond_mask=cond_mask,
                     uncond_emb=uncond_emb, uncond_mask=uncond_mask,
-                    cfg_scale=cfg_scale
+                    cfg_scale=cfg_scale,
+                    collect=collect_stats,
                 )
+
+                # 통계는 매 step 첫 번째 predict(cond)에서만 수집
+                if collect_stats:
+                    row = {
+                        b: attn_summary(s["attn_weights"], h_tok, w_tok, MAX, n_txt)
+                        for b, s in stats.items()
+                    }
+                    log.append({"step": i, "sigma": float(sigma), "blocks": row})
+                del stats
 
                 if caculate_type == "euler":
                     x = euler(x, v, sigma, sigma_next)
@@ -82,12 +107,13 @@ class Sampling:
                     else:
                         x_e = euler(x, v, sigma, sigma_next)
 
-                        v2 = self.predict(
+                        v2, _ = self.predict(
                             model=self.model,
                             x=x_e, sigma=sigma_next,
                             cond_emb=cond_emb, cond_mask=cond_mask,
                             uncond_emb=uncond_emb, uncond_mask=uncond_mask,
-                            cfg_scale=cfg_scale
+                            cfg_scale=cfg_scale,
+                            collect=False,
                         )
 
                         x = heun(x, v, v2, sigma, sigma_next)
@@ -109,7 +135,7 @@ class Sampling:
         finally:
             torch.cuda.empty_cache()
 
-        return x
+        return x, log
     
     @torch.inference_mode()
     def vae_decode(self, x):
@@ -120,7 +146,7 @@ class Sampling:
         return img
 
     @torch.inference_mode()
-    def sampling(self, user_tags, nsfw, caculate_type, cfg_scale, H, W, steps, seed=None):       
+    def sampling(self, user_tags, nsfw, caculate_type, cfg_scale, H, W, steps, seed=None, collect_stats=False):       
         unit = self.f * self.patch_size
 
         if H >= W:
@@ -160,7 +186,7 @@ class Sampling:
         x = noise
         sigmas = self.sigma_schedular(step=steps, device=self.device)
 
-        x = self.steps_sampling(
+        x, log = self.steps_sampling(
             x=x,
             steps=steps,
             caculate_type=caculate_type,
@@ -170,7 +196,8 @@ class Sampling:
             uncond_emb=uncond_emb,
             uncond_mask=uncond_mask,
             gen=gen,
-            sigmas=sigmas
+            sigmas=sigmas,
+            collect_stats=collect_stats,
         )
         img = self.vae_decode(x)
 
@@ -181,5 +208,8 @@ class Sampling:
         save_img_name = os.path.join(save_dir, "img.png")
 
         img.save(save_img_name)
+
+        if collect_stats:
+            torch.save(stack_log(log), os.path.join(save_dir, "attn_stats.pt"))
         
         return img, save_img_name
