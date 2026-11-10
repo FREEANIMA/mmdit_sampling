@@ -71,27 +71,6 @@ class Model(nn.Module):
         nn.init.zeros_(self.final_mod.weight)
         nn.init.zeros_(self.final_mod.bias)
 
-    def prepare_offload(self, device="cuda", dtype=torch.bfloat16):
-        self.device = device
-        self.dtype = dtype
-
-        # 공통 모듈 GPU 이동
-        self.txt_emb.to(device=device, dtype=dtype)
-        self.patch_embedding.to(device=device, dtype=dtype)
-
-        self.sigma_proj.to(device=device)
-        self.sigma_embed.to(device=device, dtype=dtype)
-        self.sigma_norm.to(device=device, dtype=dtype)
-
-        self.norm.to(device=device, dtype=dtype)
-        self.final_mod.to(device=device, dtype=dtype)
-        self.output_proj.to(device=device, dtype=dtype)
-
-        # Transformer Block은 CPU에 유지
-        self.blocks.to("cpu")
-
-        return self
-
     def forward(self, x, sigma, txt_emb, txt_mask=None, use_checkpoint=False, collects_stats=False, attn_collects_stats=False):
         B, C, H, W = x.shape
         p = self.patch_size

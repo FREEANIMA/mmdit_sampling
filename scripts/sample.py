@@ -22,12 +22,13 @@ class Sampling:
         self.dtype=torch.bfloat16
         self.f, self.in_channels, self.patch_size = 32, 32, 2
         self.model = load_mmdit_dcae()
+        
         self.model = self.model.to(device=self.device, dtype=self.dtype)   # prepare_offload 대신
         self.text_encoder = T5TextModel(device=self.device, dtype=self.dtype)
         self.vae = VaeModel(device=self.device, dtype=torch.float32)
 
     def sigma_schedular(self, step, device):
-        t = torch.linspace(1.0, 0.0, step + 1, device=device)
+        t = torch.linspace(0.999, 1e-3, step + 1, device=device)
         s = self.shift
         return s * t / (1 + (s - 1) * t)
 
@@ -111,7 +112,7 @@ class Sampling:
         return x
     
     @torch.inference_mode()
-    def vae_encode(self, x):
+    def vae_decode(self, x):
         with torch.inference_mode():
             decoded = self.vae.decoder(x)        
 
@@ -171,7 +172,7 @@ class Sampling:
             gen=gen,
             sigmas=sigmas
         )
-        img = self.vae_encode(x)
+        img = self.vae_decode(x)
 
 
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
