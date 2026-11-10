@@ -145,7 +145,7 @@ class Sampling:
         return img
 
     @torch.inference_mode()
-    def sampling(self, user_tags, nsfw, caculate_type, cfg_scale, H, W, steps, seed=None, collect_stats=False):       
+    def sampling(self, user_tags, nsfw, caculate_type, cfg_scale, H, W, steps, seed=None, collect_stats=True):       
         unit = self.f * self.patch_size
 
         if H >= W:
