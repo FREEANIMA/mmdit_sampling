@@ -11,6 +11,7 @@ from .caclulater import euler, heun, ddim, ddpm_plus
 from .resize_worker import img_resize
 from .draw_colab import draw_mask_colab
 from common import T5TextModel, VaeModel
+import traceback
 
 INIT_PROMPT = "general img; "
 
@@ -143,62 +144,65 @@ class InPaint:
 
     @torch.inference_mode()
     def sampling(self, user_tags, nsfw, caculate_type, cfg_scale, steps, seed=None, path=None):
-        if path is None:
-            path = input("경로를 입력해 주세요 : ")        
-        with open(path, "rb") as f:
-            img_bytes = f.read()
+        try:
+            if path is None:
+                path = input("경로를 입력해 주세요 : ")        
+            with open(path, "rb") as f:
+                img_bytes = f.read()
 
-        arr, H, W = img_resize(img_bytes, 1024, 2, 32)
-        mask_arr = draw_mask_colab(arr, brush=30)
+            arr, H, W = img_resize(img_bytes, 1024, 2, 32)
+            mask_arr = draw_mask_colab(arr, brush=30)
 
-        img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
-        img = img.to(device=self.device, dtype=self.dtype)
+            img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
+            img = img.to(device=self.device, dtype=self.dtype)
 
-        latent = self.vae_encode(img)                      # (1,C,h,w)
-        mask_lat = self.mask_generation(mask_arr, latent)  # (1,1,h,w)
+            latent = self.vae_encode(img)                      # (1,C,h,w)
+            mask_lat = self.mask_generation(mask_arr, latent)  # (1,1,h,w)
 
-        noise = torch.randn_like(latent)
+            noise = torch.randn_like(latent)
 
-        # ✅ 수정: sigmas를 먼저 자르고, x_t를 start_t 레벨의 노이즈로 초기화
-        sigmas = self.sigma_schedular(step=steps, device=self.device)
-        start_t = 0.6
-        start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
-        sigmas = sigmas[start_idx:]
-        start_sigma = sigmas[0]                            # 실제 시작 sigma
+            # ✅ 수정: sigmas를 먼저 자르고, x_t를 start_t 레벨의 노이즈로 초기화
+            sigmas = self.sigma_schedular(step=steps, device=self.device)
+            start_t = 0.6
+            start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
+            sigmas = sigmas[start_idx:]
+            start_sigma = sigmas[0]                            # 실제 시작 sigma
 
-        # 마스크 영역을 start_sigma 레벨의 노이즈로 초기화 (불일치 해소)
-        orig_at_start = (1 - start_sigma) * latent + start_sigma * noise
-        x_t = (1 - mask_lat) * latent + mask_lat * orig_at_start
+            # 마스크 영역을 start_sigma 레벨의 노이즈로 초기화 (불일치 해소)
+            orig_at_start = (1 - start_sigma) * latent + start_sigma * noise
+            x_t = (1 - mask_lat) * latent + mask_lat * orig_at_start
 
-        tags = self.cooc.tags_mapping_worker(
-            user_tags=user_tags, nsfw=nsfw, H=H, W=W
-        )
-        cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
+            tags = self.cooc.tags_mapping_worker(
+                user_tags=user_tags, nsfw=nsfw, H=H, W=W
+            )
+            cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
 
-        gen = torch.Generator(device=self.device)
-        if seed is not None:
-            gen.manual_seed(seed)
+            gen = torch.Generator(device=self.device)
+            if seed is not None:
+                gen.manual_seed(seed)
 
-        x = self.steps_sampling(
-            x=x_t,
-            sigmas=sigmas,
-            latent=latent,
-            noise=noise,
-            mask_lat=mask_lat,
-            caculate_type=caculate_type,
-            cfg_scale=cfg_scale,
-            cond_emb=cond_emb, cond_mask=cond_mask,
-            uncond_emb=uncond_emb, uncond_mask=uncond_mask,
-            gen=gen,
-        )
+            x = self.steps_sampling(
+                x=x_t,
+                sigmas=sigmas,
+                latent=latent,
+                noise=noise,
+                mask_lat=mask_lat,
+                caculate_type=caculate_type,
+                cfg_scale=cfg_scale,
+                cond_emb=cond_emb, cond_mask=cond_mask,
+                uncond_emb=uncond_emb, uncond_mask=uncond_mask,
+                gen=gen,
+            )
 
-        img_out = self.vae_decode(x)
+            img_out = self.vae_decode(x)
 
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        save_dir = os.path.join(self.base_root, "inpainting", stamp)
-        os.makedirs(save_dir, exist_ok=True)
-        save_img_name = os.path.join(save_dir, "img.png")
-        img_out.save(save_img_name)
-        print(f"img saved: {save_img_name}")
+            stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            save_dir = os.path.join(self.base_root, "inpainting", stamp)
+            os.makedirs(save_dir, exist_ok=True)
+            save_img_name = os.path.join(save_dir, "img.png")
+            img_out.save(save_img_name)
+            print(f"img saved: {save_img_name}")
 
-        return img_out, save_img_name
+            return img_out, save_img_name
+        except Exception as e:
+            traceback.print_exc(f"{e}")
