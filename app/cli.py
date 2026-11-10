@@ -62,6 +62,7 @@ def run_ui(base_root="."):
       <div id="inpaint-box" style="display:none;">
         <div class="ui-row"><label>Image Path</label><input id="img_path" placeholder="/content/xxx.png"></div>
         <div class="ui-row"><label>Brush</label><input id="brush" value="30"></div>
+        <div class="ui-row"><label>Start T</label><input id="start_t" value="0.9"></div>
       </div>
 
       <div class="ui-btns">
@@ -91,6 +92,7 @@ def run_ui(base_root="."):
         W: document.getElementById('W').value,
         img_path: document.getElementById('img_path').value,
         brush: document.getElementById('brush').value,
+        start_t: document.getElementById('start_t').value, // ✅ 추가
       };
       document.getElementById('out').textContent = 'running...';
     };
@@ -125,12 +127,14 @@ def run_ui(base_root="."):
             img_path = p["img_path"].strip()
             if not img_path or not os.path.exists(img_path):
                 raise FileNotFoundError(f"이미지 경로 없음: {img_path}")
-
+            start_t = float(p.get("start_t", 0.9))
+            
             # ✅ 마스크 그리기는 InPaint.sampling 내부에서 draw_colab.draw_mask_colab으로 처리됩니다.
             img, path = generate_inpainting(
                 base_root=base_root, tags_text=tags, nsfw=nsfw,
                 calc_type=sampler, cfg_scale=cfg,
                 steps=steps, seed=seed, img_path=img_path,
+                start_t=start_t,
             )
 
         # 결과 표시

@@ -144,7 +144,7 @@ class InPaint:
         return (m_lat > 0.5).float()
 
     @torch.inference_mode()
-    def sampling(self, user_tags, nsfw, caculate_type, cfg_scale, steps, seed=None, path=None):
+    def sampling(self, user_tags, nsfw, caculate_type, cfg_scale, steps, start_t, seed=None, path=None):
         try:
             if path is None:
                 path = input("경로를 입력해 주세요 : ")        
@@ -163,12 +163,10 @@ class InPaint:
 
             noise = torch.randn_like(latent)
 
-            # ✅ 수정: sigmas를 먼저 자르고, x_t를 start_t 레벨의 노이즈로 초기화
             sigmas = self.sigma_schedular(step=steps, device=self.device)
-            start_t = 0.6
             start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
             sigmas = sigmas[start_idx:]
-            start_sigma = sigmas[0]                            # 실제 시작 sigma
+            start_sigma = sigmas[0] 
 
             # 마스크 영역을 start_sigma 레벨의 노이즈로 초기화 (불일치 해소)
             orig_at_start = (1 - start_sigma) * latent + start_sigma * noise

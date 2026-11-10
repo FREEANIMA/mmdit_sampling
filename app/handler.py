@@ -30,7 +30,7 @@ def generate_txt2img(base_root, tags_text, nsfw, calc_type, cfg_scale,
     )
 
 def generate_inpainting(base_root, tags_text, nsfw, calc_type, cfg_scale,
-                        steps, seed, img_path):
+                        steps, seed, img_path, start_t=0.9): # ✅ 기본값 0.9 추가
     inpainter = get_inpainter(base_root=base_root)
     user_tags = [t.strip() for t in tags_text.split(",") if t.strip()]
     seed = None if seed in (None, "", -1) else int(seed)
@@ -39,4 +39,5 @@ def generate_inpainting(base_root, tags_text, nsfw, calc_type, cfg_scale,
         caculate_type=calc_type, cfg_scale=float(cfg_scale),
         steps=int(steps), seed=seed,
         path=img_path,
+        start_t=float(start_t), # ✅ 넘겨주기
     )
