@@ -197,13 +197,25 @@ class InPaint:
             )
 
             img_out = self.vae_decode(x)
-
+            mask_visual = Image.fromarray(mask_arr).convert("RGB")
+            img_out_resized = img_out.resize((W, H), Image.Resampling.LANCZOS)
+            grid_img = Image.new("RGB", (W * 3, H), (255, 255, 255))
+            
+            # 4. 이미지 붙여넣기
+            grid_img.paste(img_pil, (0, 0))              # 1번째: 원본
+            grid_img.paste(mask_visual, (W, 0))          # 2번째: 마스크
+            grid_img.paste(img_out_resized, (W * 2, 0))  # 3번째: 결과물
             stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             save_dir = os.path.join(self.base_root, "inpainting", stamp)
             os.makedirs(save_dir, exist_ok=True)
+        
             save_img_name = os.path.join(save_dir, "img.png")
             img_out.save(save_img_name)
+            grid_save_name = os.path.join(save_dir, "comparison_grid.png")
+            grid_img.save(grid_save_name)
+            
             print(f"img saved: {save_img_name}")
+            print(f"grid saved: {grid_save_name}")
 
             return img_out, save_img_name
         except Exception as e:
