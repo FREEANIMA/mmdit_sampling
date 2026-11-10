@@ -2,21 +2,25 @@ from IPython.display import HTML, display
 from google.colab.output import eval_js
 from base64 import b64encode, b64decode
 import numpy as np
-import cv2
-from PIL import Image
 import io, time
+from PIL import Image
 
-def draw_mask_colab(img_rgb, brush=20):
-    H, W = img_rgb.shape[:2]
-    # 원본을 PNG base64로 인코딩
+def draw_mask_colab(img_pil, brush=20):
+    """
+    img_pil: PIL.Image 객체 (RGB)
+    반환: (H, W) uint8 0/255 마스크
+    """
+    W, H = img_pil.size                 # PIL은 (W, H) 순서
+    
+    # PIL을 직접 PNG base64로 인코딩 (numpy 변환 과정 생략 -> 오류 방지)
     buf = io.BytesIO()
-    Image.fromarray(img_rgb).save(buf, format="PNG")
+    img_pil.save(buf, format="PNG")
     img_b64 = b64encode(buf.getvalue()).decode()
 
     canvas_html = f"""
     <div style="position:relative; width:{W}px; height:{H}px; border:1px solid #888;">
-      <canvas id="bg"   width="{W}" height="{H}" style="position:absolute; left:0; top:0;"></canvas>
-      <canvas id="ov"   width="{W}" height="{H}" style="position:absolute; left:0; top:0; cursor:crosshair;"></canvas>
+      <canvas id="bg" width="{W}" height="{H}" style="position:absolute; left:0; top:0;"></canvas>
+      <canvas id="ov" width="{W}" height="{H}" style="position:absolute; left:0; top:0; cursor:crosshair;"></canvas>
     </div>
     <br>
     <button id="finish">Finish</button>
@@ -39,7 +43,6 @@ def draw_mask_colab(img_rgb, brush=20):
     top.addEventListener('mouseleave', () => drawing = false);
     document.getElementById('clear').onclick = () => ov.clearRect(0, 0, {W}, {H});
     document.getElementById('finish').onclick = () => {{
-        // 오버레이만 뽑아서 마스크로 (투명=0, 빨강=칠함)
         const tmp = document.createElement('canvas');
         tmp.width = {W}; tmp.height = {H};
         const tctx = tmp.getContext('2d');

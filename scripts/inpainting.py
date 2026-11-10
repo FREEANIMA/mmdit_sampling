@@ -74,9 +74,9 @@ class InPaint:
         self,
         x,
         sigmas,
-        latent,          # ✅ 추가
-        noise,           # ✅ 추가
-        mask_lat,        # ✅ 추가
+        latent,
+        noise,  
+        mask_lat,    
         caculate_type,
         cfg_scale,
         cond_emb, cond_mask,
