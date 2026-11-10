@@ -205,4 +205,5 @@ class InPaint:
 
             return img_out, save_img_name
         except Exception as e:
-            traceback.print_exc(f"{e}")
+            traceback.print_exc()
+            raise
