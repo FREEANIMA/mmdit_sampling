@@ -68,21 +68,8 @@ class InPaint:
         c, u = cond_out.float(), uncond_out.float()
         return u + cfg_scale * (c - u)
 
-    # ---------------- steps sampling ----------------
     @torch.inference_mode()
-    def steps_sampling(
-        self,
-        x,
-        sigmas,
-        latent,
-        noise,  
-        mask_lat,    
-        caculate_type,
-        cfg_scale,
-        cond_emb, cond_mask,
-        uncond_emb, uncond_mask,
-        gen,
-    ):
+    def steps_sampling(self, x, sigmas, latent, noise, mask_lat, caculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gen,):
         self.model.eval()
         n = len(sigmas) - 1
 
@@ -127,9 +114,6 @@ class InPaint:
                     raise ValueError(f"Unsupported sampling method: {caculate_type}")
 
                 del v
-
-                # ✅ 매 스텝 보존 영역 복원 (인페인팅의 핵심)
-                # flow matching 가정: x_sigma = (1 - sigma) * x0 + sigma * eps
                 sigma_view = sigma.view(1, 1, 1, 1)
                 orig_latent_t = (1 - sigma_view) * latent + sigma_view * noise
                 x = (1 - mask_lat) * orig_latent_t + mask_lat * x
@@ -139,7 +123,6 @@ class InPaint:
 
         return x
 
-    # ---------------- mask ----------------
     def mask_generation(self, mask_arr, latent):
         if isinstance(mask_arr, np.ndarray):
             m = torch.from_numpy(mask_arr).float()
@@ -158,10 +141,10 @@ class InPaint:
         m_lat = F.interpolate(m, size=latent.shape[-2:], mode="nearest")
         return (m_lat > 0.5).float()
 
-    # ---------------- main ----------------
     @torch.inference_mode()
-    def sampling(self, user_tags, nsfw, caculate_type, cfg_scale, steps, seed=None):
-        path = input("경로를 입력해 주세요 : ")
+    def sampling(self, user_tags, nsfw, caculate_type, cfg_scale, steps, seed=None, path=None):
+        if path is None:
+            path = input("경로를 입력해 주세요 : ")        
         with open(path, "rb") as f:
             img_bytes = f.read()
 
