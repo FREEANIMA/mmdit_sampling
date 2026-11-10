@@ -11,7 +11,7 @@ from datetime import datetime
 from common import T5TextModel
 from common import VaeModel
 from .attn_stats import (
-    attn_summary, tag_attn_map, stack_log
+    attn_summary, tag_attn_map, stack_log, print_stats
 )
 
 INIT_PROMPT = "general img; "
@@ -39,7 +39,7 @@ class Sampling:
         return max(round(v / unit), 1) * unit
 
     @torch.inference_mode()
-    def predict(self, model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale, collect=False):
+    def predict(self, model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale, collect=True):
         x_in = x.to(self.dtype)
         sig = sigma.expand(x.shape[0])
         with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
@@ -64,9 +64,8 @@ class Sampling:
         return cond_emb, uncond_emb, cond_mask, uncond_mask
         
     @torch.inference_mode()
-    def steps_sampling(self, x, steps, caculate_type, cfg_scale, cond_emb, uncond_emb, cond_mask, uncond_mask, gen, sigmas, collect_stats=False):
+    def steps_sampling(self, x, steps, caculate_type, cfg_scale, cond_emb, uncond_emb, cond_mask, uncond_mask, gen, sigmas, collect_stats=True):
         self.model.eval()
-        collect_stats = True
 
         MAX = self.model.max_side
         n_txt = int(cond_mask.sum().item())
@@ -208,8 +207,10 @@ class Sampling:
         save_img_name = os.path.join(save_dir, "img.png")
 
         img.save(save_img_name)
+        print(f"img saved: {save_img_name}")
 
         if collect_stats:
-            torch.save(stack_log(log), os.path.join(save_dir, "attn_stats.pt"))
+            stacked = stack_log(log)
+            print_stats(stacked, stride=1)
         
         return img, save_img_name

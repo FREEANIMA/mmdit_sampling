@@ -62,3 +62,14 @@ def stack_log(log):
         ])                                   # (S, B, nh)
     out["sigma"] = torch.tensor([r["sigma"] for r in log])
     return out
+
+def print_stats(d, metrics=("entropy", "txt_mass", "mean_dist", "top1"), stride=1):
+    """d: stack_log 결과. 지표별로 행=step, 열=block (head 평균) 표를 출력"""
+    sigma = d["sigma"]
+    for m in metrics:
+        t = d[m].mean(-1)                     # (S, B)
+        print(f"\n[{m}]  rows=step(sigma)  cols=block")
+        print("step  sigma  " + " ".join(f"{'b'+str(b):>5}" for b in range(t.shape[1])))
+        for s in range(0, t.shape[0], stride):
+            vals = " ".join(f"{v:5.2f}" for v in t[s].tolist())
+            print(f"{s:4d}  {sigma[s]:.3f}  {vals}")
