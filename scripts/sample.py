@@ -64,9 +64,9 @@ class Sampling:
         return cond_emb, uncond_emb, cond_mask, uncond_mask
         
     @torch.inference_mode()
-    def steps_sampling(self, x, steps, caculate_type, cfg_scale, cond_emb, uncond_emb,
-                       cond_mask, uncond_mask, gen, sigmas, collect_stats=False):
+    def steps_sampling(self, x, steps, caculate_type, cfg_scale, cond_emb, uncond_emb, cond_mask, uncond_mask, gen, sigmas, collect_stats=False):
         self.model.eval()
+        collect_stats = True
 
         MAX = self.model.max_side
         n_txt = int(cond_mask.sum().item())
