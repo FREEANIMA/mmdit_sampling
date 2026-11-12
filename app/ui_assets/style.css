@@ -1,0 +1,7 @@
+.ui-box { font-family: sans-serif; width: 640px; padding: 12px; border: 1px solid #ccc; border-radius: 8px; }
+.ui-row { margin: 6px 0; }
+.ui-row label { display: inline-block; width: 110px; font-weight: 600; }
+.ui-row input, .ui-row select { width: 380px; padding: 4px; }
+.ui-btns { margin-top: 10px; }
+.ui-btns button { padding: 6px 14px; margin-right: 6px; cursor: pointer; }
+#out { margin-top: 12px; font-size: 13px; color: #333; white-space: pre-wrap; }

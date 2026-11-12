@@ -22,5 +22,8 @@ if __name__ == "__main__":
     ROOT = get_root()
     hf_login()
 
-    from app.cli import run_ui
-    run_ui(base_root=ROOT)
+    from app.handler import Handler
+    from app.ui_colab import ColabUI
+
+    handler = Handler(base_root=ROOT)
+    ColabUI(handler).run()

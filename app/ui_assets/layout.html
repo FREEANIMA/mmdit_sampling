@@ -1,0 +1,39 @@
+<div class="ui-box">
+  <div class="ui-row">
+    <label>Mode</label>
+    <select id="mode">
+      <option value="txt2img">txt2img</option>
+      <option value="inpainting">inpainting</option>
+    </select>
+  </div>
+  <div class="ui-row"><label>Tags</label><input id="tags" placeholder="예: 1girl, cinematic, ..."></div>
+  <div class="ui-row">
+    <label>NSFW</label>
+    <select id="nsfw"><option value="false">n</option><option value="true">y</option></select>
+  </div>
+  <div class="ui-row">
+    <label>Sampler</label>
+    <select id="sampler">
+      <option>euler</option><option>heun</option><option>ddim</option><option>ddpm_plus</option>
+    </select>
+  </div>
+  <div class="ui-row"><label>CFG</label><input id="cfg" value="4.0"></div>
+  <div class="ui-row"><label>Steps</label><input id="steps" value="30"></div>
+  <div class="ui-row"><label>Seed</label><input id="seed" value="-1"></div>
+
+  <div id="txt2img-box">
+    <div class="ui-row"><label>H</label><input id="H" value="1024"></div>
+    <div class="ui-row"><label>W</label><input id="W" value="1024"></div>
+  </div>
+
+  <div id="inpaint-box" style="display:none;">
+    <div class="ui-row"><label>Image Path</label><input id="img_path" placeholder="/content/xxx.png"></div>
+    <div class="ui-row"><label>Start T</label><input id="start_t" value="0.9"></div>
+  </div>
+
+  <div class="ui-btns">
+    <button id="run">Generate</button>
+    <button id="clear_out">Clear</button>
+  </div>
+  <div id="out"></div>
+</div>
