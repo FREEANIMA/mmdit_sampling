@@ -8,7 +8,7 @@ from PIL import Image
 from data import TagsCoOC
 
 from networks import load_mmdit_dcae
-from utilities import (
+from src.utilities import (
     euler, heun, ddim, ddpm_plus, img_resize, draw_mask_colab
 )
 from common import T5TextModel, VaeModel
