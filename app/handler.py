@@ -17,7 +17,8 @@ class Handler:
         self.device = device
         self.dtype = dtype
 
-        self.model, self.config = load_mmdit_dcae().to(device=device, dtype=dtype)
+        self.model, self.config = load_mmdit_dcae()
+        self.model = self.model.to(device=device, dtype=dtype)
         self.text_encoder = T5TextModel(device=device, dtype=dtype)
         self.vae = VaeModel(device=device, dtype=torch.float32)
 
