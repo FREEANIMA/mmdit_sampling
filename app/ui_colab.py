@@ -1,6 +1,3 @@
-# app/ui_colab.py
-from __future__ import annotations
-
 import base64
 import io
 import time
@@ -20,7 +17,6 @@ class ColabUI:
     def __init__(self, handler: Handler):
         self.handler = handler
 
-    # ---------- 폼 ----------
     def _read_asset(self, name: str) -> str:
         return (self.ASSET_DIR / name).read_text(encoding="utf-8")
 

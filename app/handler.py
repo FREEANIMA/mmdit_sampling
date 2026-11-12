@@ -1,24 +1,15 @@
-# app/handler.py
-from __future__ import annotations
-
 from typing import Optional
-
 import torch
 
 from src.generation import Sampling, InPaint
 from common import T5TextModel, VaeModel
 from networks import load_mmdit_dcae
 
-
 def _parse_tags(tags_text: str) -> list[str]:
-    """콤마로 구분된 태그 문자열을 리스트로 변환."""
     return [t.strip() for t in tags_text.split(",") if t.strip()]
 
-
 def _parse_seed(seed) -> Optional[int]:
-    """None / 빈 문자열 / -1 이면 랜덤 시드(None)로 처리."""
     return None if seed in (None, "", -1) else int(seed)
-
 
 class Handler:
     def __init__(self, base_root: str = ".", device: str = "cuda", dtype: torch.dtype = torch.bfloat16,):
