@@ -21,12 +21,7 @@ def _parse_seed(seed) -> Optional[int]:
 
 
 class Handler:
-    def __init__(
-        self,
-        base_root: str = ".",
-        device: str = "cuda",
-        dtype: torch.dtype = torch.bfloat16,
-    ):
+    def __init__(self, base_root: str = ".", device: str = "cuda", dtype: torch.dtype = torch.bfloat16,):
         self.base_root = base_root
         self.device = device
         self.dtype = dtype
@@ -35,25 +30,22 @@ class Handler:
         self.text_encoder = T5TextModel(device=device, dtype=dtype)
         self.vae = VaeModel(device=device, dtype=torch.float32)
 
-        # 필요할 때 한 번만 생성 (lazy init)
         self._sampler: Optional[Sampling] = None
         self._inpainter: Optional[InPaint] = None
 
     @property
     def sampler(self) -> Sampling:
         if self._sampler is None:
-            self._sampler = Sampling(base_root=self.base_root)
+            self._sampler = Sampling(base_root=self.base_root, model=self.model, text_encoder=self.text_encoder, vae=self.vae)
         return self._sampler
 
     @property
     def inpainter(self) -> InPaint:
         if self._inpainter is None:
-            self._inpainter = InPaint(base_root=self.base_root)
+            self._inpainter = InPaint(base_root=self.base_root, model=self.model, text_encoder=self.text_encoder, vae=self.vae)
         return self._inpainter
 
-    def generate_txt2img(
-        self, tags_text, nsfw, calc_type, cfg_scale, H, W, steps, seed
-    ):
+    def generate_txt2img(self, tags_text, nsfw, calc_type, cfg_scale, H, W, steps, seed):
         return self.sampler.sampling(
             user_tags=_parse_tags(tags_text),
             nsfw=bool(nsfw),
@@ -65,17 +57,7 @@ class Handler:
             seed=_parse_seed(seed),
         )
 
-    def generate_inpainting(
-        self,
-        tags_text,
-        nsfw,
-        calc_type,
-        cfg_scale,
-        steps,
-        seed,
-        img_path,
-        start_t: float = 0.9,
-    ):
+    def generate_inpainting(self, tags_text, nsfw, calc_type, cfg_scale, steps, seed, img_path, start_t: float = 0.9):
         return self.inpainter.sampling(
             user_tags=_parse_tags(tags_text),
             nsfw=bool(nsfw),
