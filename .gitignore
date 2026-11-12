@@ -7,6 +7,7 @@ __pycache__/
 data/metadata
 .env
 venv/
+scripts/
 
 .vscode/
 .idea/
