@@ -1,6 +1,5 @@
 # app/handler.py
-from src.generation.sample import Sampling
-from src.generation.inpainting import InPaint
+from src.generation import Sampling, InPaint
 
 _sampler = None
 _inpainter = None
