@@ -47,3 +47,14 @@ def load_model(model_class, path):
         bar.update(1)
 
     return model
+import gc
+import torch
+
+def free_cuda(verbose: bool = False) -> None:
+    gc.collect()                      # 파이썬 쪽 참조부터 정리
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()      # 캐시된 블록 반환
+        torch.cuda.ipc_collect()
+        if verbose:
+            print(f"[cuda] allocated {torch.cuda.memory_allocated()/1024**3:.2f} GB, "
+                  f"reserved {torch.cuda.memory_reserved()/1024**3:.2f} GB")
