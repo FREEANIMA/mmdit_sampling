@@ -13,8 +13,6 @@ from src.utilities import (
 )
 from common import T5TextModel, VaeModel
 
-
-
 INIT_PROMPT = "general img; "
 
 class InPaint:
@@ -30,13 +28,11 @@ class InPaint:
         self.text_encoder = T5TextModel(device=self.device, dtype=self.dtype)
         self.vae = VaeModel(device=self.device, dtype=torch.float32)
 
-    # ---------------- sigma ----------------
     def sigma_schedular(self, step, device):
         t = torch.linspace(0.999, 1e-3, step + 1, device=device)
         s = self.shift
         return s * t / (1 + (s - 1) * t)
 
-    # ---------------- VAE ----------------
     @torch.inference_mode()
     def vae_encode(self, img):
         return self.vae.encoder(img)
@@ -46,14 +42,12 @@ class InPaint:
         decoded = self.vae.decoder(latent)
         return self.vae._tensor_to_pil(decoded)
 
-    # ---------------- text ----------------
     @torch.inference_mode()
     def text_encode(self, tags):
         cond_emb, cond_mask = self.text_encoder.encoder(tags)
         uncond_emb, uncond_mask = self.text_encoder.encoder([INIT_PROMPT])
         return cond_emb, uncond_emb, cond_mask, uncond_mask
 
-    # ---------------- predict (CFG) ----------------
     @torch.inference_mode()
     def predict(self, model, x, sigma, cond_emb, cond_mask,
                 uncond_emb, uncond_mask, cfg_scale):

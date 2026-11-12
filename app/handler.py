@@ -1,42 +1,88 @@
 # app/handler.py
+from __future__ import annotations
+
+from typing import Optional
+
+import torch
+
 from src.generation import Sampling, InPaint
-
-_sampler = None
-_inpainter = None
-
-def get_sampler(base_root="."):
-    global _sampler
-    if _sampler is None:
-        _sampler = Sampling(base_root=base_root)
-    return _sampler
-
-def get_inpainter(base_root="."):
-    global _inpainter
-    if _inpainter is None:
-        _inpainter = InPaint(base_root=base_root)
-    return _inpainter
+from common import T5TextModel, VaeModel
+from networks import load_mmdit_dcae
 
 
-def generate_txt2img(base_root, tags_text, nsfw, calc_type, cfg_scale,
-                     H, W, steps, seed):
-    sampler = get_sampler(base_root=base_root)
-    user_tags = [t.strip() for t in tags_text.split(",") if t.strip()]
-    seed = None if seed in (None, "", -1) else int(seed)
-    return sampler.sampling(
-        user_tags=user_tags, nsfw=bool(nsfw),
-        caculate_type=calc_type, cfg_scale=float(cfg_scale),
-        H=int(H), W=int(W), steps=int(steps), seed=seed,
-    )
+def _parse_tags(tags_text: str) -> list[str]:
+    """콤마로 구분된 태그 문자열을 리스트로 변환."""
+    return [t.strip() for t in tags_text.split(",") if t.strip()]
 
-def generate_inpainting(base_root, tags_text, nsfw, calc_type, cfg_scale,
-                        steps, seed, img_path, start_t=0.9): # ✅ 기본값 0.9 추가
-    inpainter = get_inpainter(base_root=base_root)
-    user_tags = [t.strip() for t in tags_text.split(",") if t.strip()]
-    seed = None if seed in (None, "", -1) else int(seed)
-    return inpainter.sampling(
-        user_tags=user_tags, nsfw=bool(nsfw),
-        caculate_type=calc_type, cfg_scale=float(cfg_scale),
-        steps=int(steps), seed=seed,
-        path=img_path,
-        start_t=float(start_t), # ✅ 넘겨주기
-    )
+
+def _parse_seed(seed) -> Optional[int]:
+    """None / 빈 문자열 / -1 이면 랜덤 시드(None)로 처리."""
+    return None if seed in (None, "", -1) else int(seed)
+
+
+class Handler:
+    def __init__(
+        self,
+        base_root: str = ".",
+        device: str = "cuda",
+        dtype: torch.dtype = torch.bfloat16,
+    ):
+        self.base_root = base_root
+        self.device = device
+        self.dtype = dtype
+
+        self.model = load_mmdit_dcae().to(device=device, dtype=dtype)
+        self.text_encoder = T5TextModel(device=device, dtype=dtype)
+        self.vae = VaeModel(device=device, dtype=torch.float32)
+
+        # 필요할 때 한 번만 생성 (lazy init)
+        self._sampler: Optional[Sampling] = None
+        self._inpainter: Optional[InPaint] = None
+
+    @property
+    def sampler(self) -> Sampling:
+        if self._sampler is None:
+            self._sampler = Sampling(base_root=self.base_root)
+        return self._sampler
+
+    @property
+    def inpainter(self) -> InPaint:
+        if self._inpainter is None:
+            self._inpainter = InPaint(base_root=self.base_root)
+        return self._inpainter
+
+    def generate_txt2img(
+        self, tags_text, nsfw, calc_type, cfg_scale, H, W, steps, seed
+    ):
+        return self.sampler.sampling(
+            user_tags=_parse_tags(tags_text),
+            nsfw=bool(nsfw),
+            calculate_type=calc_type,
+            cfg_scale=float(cfg_scale),
+            H=int(H),
+            W=int(W),
+            steps=int(steps),
+            seed=_parse_seed(seed),
+        )
+
+    def generate_inpainting(
+        self,
+        tags_text,
+        nsfw,
+        calc_type,
+        cfg_scale,
+        steps,
+        seed,
+        img_path,
+        start_t: float = 0.9,
+    ):
+        return self.inpainter.sampling(
+            user_tags=_parse_tags(tags_text),
+            nsfw=bool(nsfw),
+            caculate_type=calc_type,
+            cfg_scale=float(cfg_scale),
+            steps=int(steps),
+            seed=_parse_seed(seed),
+            path=img_path,
+            start_t=float(start_t),
+        )

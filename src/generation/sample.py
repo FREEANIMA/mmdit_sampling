@@ -14,7 +14,7 @@ from common import VaeModel
 INIT_PROMPT = "general img; "
 
 class Sampling:
-    def __init__(self, base_root):
+    def __init__(self, base_root, model, text_encoder, vae):
         self.base_root = base_root
         self.cooc = TagsCoOC(base_root=base_root)
         self.shift: float = 3.0
@@ -23,7 +23,7 @@ class Sampling:
         self.f, self.in_channels, self.patch_size = 32, 32, 2
         self.model = load_mmdit_dcae()
         
-        self.model = self.model.to(device=self.device, dtype=self.dtype)   # prepare_offload 대신
+        self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.text_encoder = T5TextModel(device=self.device, dtype=self.dtype)
         self.vae = VaeModel(device=self.device, dtype=torch.float32)
 
@@ -61,7 +61,7 @@ class Sampling:
         return cond_emb, uncond_emb, cond_mask, uncond_mask
         
     @torch.inference_mode()
-    def steps_sampling(self, x, steps, caculate_type, cfg_scale, cond_emb, uncond_emb, cond_mask, uncond_mask, gen, sigmas):
+    def steps_sampling(self, x, steps, calculate_type, cfg_scale, cond_emb, uncond_emb, cond_mask, uncond_mask, gen, sigmas):
         self.model.eval()
 
         try:
@@ -76,13 +76,13 @@ class Sampling:
                     cfg_scale=cfg_scale,
                 )
 
-                if caculate_type == "euler":
+                if calculate_type == "euler":
                     x = euler(x, v, sigma, sigma_next)
 
-                elif caculate_type == "ddim":
+                elif calculate_type == "ddim":
                     x = ddim(x, v, sigma, sigma_next)
 
-                elif caculate_type == "heun":
+                elif calculate_type == "heun":
                     if i == steps - 1:
                         x = euler(x, v, sigma, sigma_next)
                     else:
@@ -100,17 +100,14 @@ class Sampling:
                         x = heun(x, v, v2, sigma, sigma_next)
                         del x_e, v2
 
-                elif caculate_type == "ddpm_plus":
+                elif calculate_type == "ddpm_plus":
                     z = torch.randn(
                         x.shape, generator=gen,
                         device=x.device, dtype=x.dtype
                     )
                     x = ddpm_plus(x, v, z, sigma, sigma_next)
                     del z
-
-                else:
-                    raise ValueError(f"Unsupported sampling method: {caculate_type}")
-
+                    
                 del v
 
         finally:
@@ -127,7 +124,7 @@ class Sampling:
         return img
 
     @torch.inference_mode()
-    def sampling(self, user_tags, nsfw, caculate_type, cfg_scale, H, W, steps, seed=None):       
+    def sampling(self, user_tags, nsfw, calculate_type, cfg_scale, H, W, steps, seed=None):       
         unit = self.f * self.patch_size
 
         if H >= W:
@@ -170,7 +167,7 @@ class Sampling:
         x = self.steps_sampling(
             x=x,
             steps=steps,
-            caculate_type=caculate_type,
+            calculate_type=calculate_type,
             cfg_scale=cfg_scale,
             cond_emb=cond_emb,
             cond_mask=cond_mask,

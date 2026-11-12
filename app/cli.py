@@ -128,8 +128,7 @@ def run_ui(base_root="."):
             if not img_path or not os.path.exists(img_path):
                 raise FileNotFoundError(f"이미지 경로 없음: {img_path}")
             start_t = float(p.get("start_t", 0.9))
-            
-            # ✅ 마스크 그리기는 InPaint.sampling 내부에서 draw_colab.draw_mask_colab으로 처리됩니다.
+          
             img, path = generate_inpainting(
                 base_root=base_root, tags_text=tags, nsfw=nsfw,
                 calc_type=sampler, cfg_scale=cfg,
