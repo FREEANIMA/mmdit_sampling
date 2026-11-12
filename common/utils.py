@@ -1,6 +1,5 @@
 import torch
-import time
-from contextlib import contextmanager
+from tqdm.auto import tqdm
 
 def default_device():
     return "cuda" if torch.cuda.is_available() else "cpu"
@@ -18,25 +17,33 @@ def strip_orig_mod(state_dict):
     }
 
 def load_model(model_class, path):
-    checkpoint = torch.load(path, map_location="cpu", weights_only=True, mmap=True)
-    config = checkpoint.get("config")
-    if config is None:
-        raise KeyError(f"모델 파라미터 키를 찾지 못했습니다. keys={list(checkpoint.keys())}")
+    with tqdm(total=4, desc="Loading model") as bar:
+        bar.set_postfix_str("체크포인트 읽기")
+        checkpoint = torch.load(path, map_location="cpu", weights_only=True, mmap=True)
+        config = checkpoint.get("config")
+        if config is None:
+            raise KeyError(f"모델 파라미터 키를 찾지 못했습니다. keys={list(checkpoint.keys())}")
 
-    state_dict = None
-    for key in ("ema_state_dict", "model_state_dict", "model"):
-        if key in checkpoint:
-            state_dict = checkpoint[key]
-            break
-        
-    state_dict = strip_orig_mod(state_dict)
+        state_dict = next(
+            (checkpoint[k] for k in ("ema_state_dict", "model_state_dict", "model") if k in checkpoint),
+            None,
+        )
+        if state_dict is None:
+            raise KeyError(f"state_dict 키를 찾지 못했습니다. keys={list(checkpoint.keys())}")
+        state_dict = strip_orig_mod(state_dict)
+        bar.update(1)
 
-    with torch.device("meta"):
-        model = model_class(**config)
+        bar.set_postfix_str("모델 생성")
+        with torch.device("meta"):
+            model = model_class(**config)
+        bar.update(1)
 
-    model.load_state_dict(state_dict, assign=True)
-    model.eval()
+        bar.set_postfix_str("가중치 로드")
+        model.load_state_dict(state_dict, assign=True)
+        bar.update(1)
 
-    del checkpoint, state_dict
+        model.eval()
+        del checkpoint, state_dict
+        bar.update(1)
 
     return model
