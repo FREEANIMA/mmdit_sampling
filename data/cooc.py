@@ -15,7 +15,7 @@ class TagsCoOC:
         self.co_df = pd.read_parquet(vocab_matrix_path)
         self.tags_type_df = pd.read_parquet(tags_type_path)        
 
-    def recommend(self, user_tags, top_k=30, special_top_k=500, debug=False):
+    def recommend(self, user_tags, top_k=30, special_top_k=1000, debug=False):
         valid = [t for t in user_tags if t in self.co_df.index]
         if not valid:
             return []
@@ -67,19 +67,19 @@ class TagsCoOC:
 
         # co oc로 측정한 연관된 top tag (자기 자신 제외)
         mapped_include = [mapping[t] for t in include_tags] + [nsfw_str]
-        # top_tags_list = self.recommend(user_tags=mapped_include, top_k=100, special_top_k=500 ,debug=False)
+        top_tags_list = self.recommend(user_tags=mapped_include, top_k=100, special_top_k=500 ,debug=False)
 
         # top tag 중 type별 하나 씩 필터
-        # top_tags_type_dict = {t: type_mapping[t] for t in top_tags_list if t in type_mapping}
+        top_tags_type_dict = {t: type_mapping[t] for t in top_tags_list if t in type_mapping}
 
         unused_set = set(unused_type)
 
         seen = set()
         dedup_dict = {}
-        # for t, ty in top_tags_type_dict.items():
-        #     if ty in unused_set and ty not in seen:
-        #         seen.add(ty)
-        #         dedup_dict[t] = ty
+        for t, ty in top_tags_type_dict.items():
+            if ty in unused_set and ty not in seen:
+                seen.add(ty)
+                dedup_dict[t] = ty
 
         total = {**include_tags_dict, **dedup_dict, **exclude_tags_dict}
 
