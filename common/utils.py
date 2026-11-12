@@ -19,8 +19,8 @@ def strip_orig_mod(state_dict):
 
 def load_model(model_class, path):
     checkpoint = torch.load(path, map_location="cpu", weights_only=True, mmap=True)
-    params = checkpoint.get("param")
-    if params is None:
+    config = checkpoint.get("config")
+    if config is None:
         raise KeyError(f"모델 파라미터 키를 찾지 못했습니다. keys={list(checkpoint.keys())}")
 
     state_dict = None
@@ -32,7 +32,7 @@ def load_model(model_class, path):
     state_dict = strip_orig_mod(state_dict)
 
     with torch.device("meta"):
-        model = model_class(**params)
+        model = model_class(**config)
 
     model.load_state_dict(state_dict, assign=True)
     model.eval()
