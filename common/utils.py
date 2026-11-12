@@ -2,7 +2,6 @@ import torch
 from tqdm.auto import tqdm
 import gc
 import torch
-from pprint import pprint
 
 def default_device():
     return "cuda" if torch.cuda.is_available() else "cpu"
@@ -48,9 +47,6 @@ def load_model(model_class, path):
         model.eval()
         del checkpoint, state_dict
         bar.update(1)
-
-    print(f"[config] {model_class.__name__}")
-    pprint(config, sort_dicts=False)
 
     return model, config
 
