@@ -1,7 +1,7 @@
 ﻿[app]
     __init__.py
+    cli.py
     handler.py
-    ui.py
 [assets]
 [common]
     __init__.py
@@ -30,14 +30,15 @@
         Rope2D.py
         sinusoidal_pos_emb.py
     __init__.py
-[scripts]
+[src]
     __init__.py
+    attn_stats.py
     caclulater.py
+    draw_colab.py
+    inpainting.py
+    resize_worker.py
     sample.py
-[temp]
-[weights]
+.env
 .gitignore
-pyproject.toml
-README.md
+main.py
 requirements.txt
-tree.txt

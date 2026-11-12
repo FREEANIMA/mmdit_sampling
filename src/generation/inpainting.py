@@ -4,15 +4,16 @@ import numpy as np
 import os
 from datetime import datetime
 from tqdm.auto import tqdm
+from PIL import Image
+from data import TagsCoOC
 
 from networks import load_mmdit_dcae
-from data import TagsCoOC
-from .caclulater import euler, heun, ddim, ddpm_plus
-from .resize_worker import img_resize
-from .draw_colab import draw_mask_colab
+from utilities import (
+    euler, heun, ddim, ddpm_plus, img_resize, draw_mask_colab
+)
 from common import T5TextModel, VaeModel
-import traceback
-from PIL import Image
+
+
 
 INIT_PROMPT = "general img; "
 
@@ -38,7 +39,7 @@ class InPaint:
     # ---------------- VAE ----------------
     @torch.inference_mode()
     def vae_encode(self, img):
-        return self.vae.encoder(img)          # ✅ 수정
+        return self.vae.encoder(img)
 
     @torch.inference_mode()
     def vae_decode(self, latent):
@@ -145,77 +146,73 @@ class InPaint:
 
     @torch.inference_mode()
     def sampling(self, user_tags, nsfw, caculate_type, cfg_scale, steps, start_t, seed=None, path=None):
-        try:
-            if path is None:
-                path = input("경로를 입력해 주세요 : ")        
-            with open(path, "rb") as f:
-                img_bytes = f.read()
-
-            arr, H, W = img_resize(img_bytes, 1024, 2, 32)
-            img_pil = Image.fromarray(arr)
-            mask_arr = draw_mask_colab(img_pil, brush=30)
-
-            img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
-            img = img.to(device=self.device, dtype=self.dtype)
-
-            latent = self.vae_encode(img)                      # (1,C,h,w)
-            mask_lat = self.mask_generation(mask_arr, latent)  # (1,1,h,w)
-
-            noise = torch.randn_like(latent)
-
-            sigmas = self.sigma_schedular(step=steps, device=self.device)
-            start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
-            sigmas = sigmas[start_idx:]
-            start_sigma = sigmas[0] 
-
-            # 마스크 영역을 start_sigma 레벨의 노이즈로 초기화 (불일치 해소)
-            orig_at_start = (1 - start_sigma) * latent + start_sigma * noise
-            x_t = (1 - mask_lat) * latent + mask_lat * orig_at_start
-
-            tags = self.cooc.tags_mapping_worker(
-                user_tags=user_tags, nsfw=nsfw, H=H, W=W
-            )
-            cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
-
-            gen = torch.Generator(device=self.device)
-            if seed is not None:
-                gen.manual_seed(seed)
-
-            x = self.steps_sampling(
-                x=x_t,
-                sigmas=sigmas,
-                latent=latent,
-                noise=noise,
-                mask_lat=mask_lat,
-                caculate_type=caculate_type,
-                cfg_scale=cfg_scale,
-                cond_emb=cond_emb, cond_mask=cond_mask,
-                uncond_emb=uncond_emb, uncond_mask=uncond_mask,
-                gen=gen,
-            )
-
-            img_out = self.vae_decode(x)
-            mask_visual = Image.fromarray(mask_arr).convert("RGB")
-            img_out_resized = img_out.resize((W, H), Image.Resampling.LANCZOS)
-            grid_img = Image.new("RGB", (W * 3, H), (255, 255, 255))
-            
-            # 4. 이미지 붙여넣기
-            grid_img.paste(img_pil, (0, 0))              # 1번째: 원본
-            grid_img.paste(mask_visual, (W, 0))          # 2번째: 마스크
-            grid_img.paste(img_out_resized, (W * 2, 0))  # 3번째: 결과물
-            stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            save_dir = os.path.join(self.base_root, "inpainting", stamp)
-            os.makedirs(save_dir, exist_ok=True)
+        if path is None:
+            print("경로를 입력해 주세요")       
+            return 
         
-            save_img_name = os.path.join(save_dir, "img.png")
-            img_out.save(save_img_name)
-            grid_save_name = os.path.join(save_dir, "comparison_grid.png")
-            grid_img.save(grid_save_name)
-            
-            print(f"img saved: {save_img_name}")
-            print(f"grid saved: {grid_save_name}")
+        with open(path, "rb") as f:
+            img_bytes = f.read()
 
-            return img_out, save_img_name
-        except Exception as e:
-            traceback.print_exc()
-            raise
+        arr, H, W = img_resize(img_bytes, 1024, 2, 32)
+        img_pil = Image.fromarray(arr)
+        mask_arr = draw_mask_colab(img_pil, brush=30)
+
+        img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
+        img = img.to(device=self.device, dtype=self.dtype)
+
+        latent = self.vae_encode(img)                      # (1,C,h,w)
+        mask_lat = self.mask_generation(mask_arr, latent)  # (1,1,h,w)
+
+        noise = torch.randn_like(latent)
+
+        sigmas = self.sigma_schedular(step=steps, device=self.device)
+        start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
+        sigmas = sigmas[start_idx:]
+        start_sigma = sigmas[0] 
+        orig_at_start = (1 - start_sigma) * latent + start_sigma * noise
+        x_t = (1 - mask_lat) * latent + mask_lat * orig_at_start
+
+        tags = self.cooc.tags_mapping_worker(
+            user_tags=user_tags, nsfw=nsfw, H=H, W=W
+        )
+        cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
+
+        gen = torch.Generator(device=self.device)
+        if seed is not None:
+            gen.manual_seed(seed)
+
+        x = self.steps_sampling(
+            x=x_t,
+            sigmas=sigmas,
+            latent=latent,
+            noise=noise,
+            mask_lat=mask_lat,
+            caculate_type=caculate_type,
+            cfg_scale=cfg_scale,
+            cond_emb=cond_emb, cond_mask=cond_mask,
+            uncond_emb=uncond_emb, uncond_mask=uncond_mask,
+            gen=gen,
+        )
+
+        img_out = self.vae_decode(x)
+        mask_visual = Image.fromarray(mask_arr).convert("RGB")
+        img_out_resized = img_out.resize((W, H), Image.Resampling.LANCZOS)
+        grid_img = Image.new("RGB", (W * 3, H), (255, 255, 255))
+        
+        # 4. 이미지 붙여넣기
+        grid_img.paste(img_pil, (0, 0))              # 1번째: 원본
+        grid_img.paste(mask_visual, (W, 0))          # 2번째: 마스크
+        grid_img.paste(img_out_resized, (W * 2, 0))  # 3번째: 결과물
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        save_dir = os.path.join(self.base_root, "inpainting", stamp)
+        os.makedirs(save_dir, exist_ok=True)
+    
+        save_img_name = os.path.join(save_dir, "img.png")
+        img_out.save(save_img_name)
+        grid_save_name = os.path.join(save_dir, "comparison_grid.png")
+        grid_img.save(grid_save_name)
+        
+        print(f"img saved: {save_img_name}")
+        print(f"grid saved: {grid_save_name}")
+
+        return img_out, save_img_name

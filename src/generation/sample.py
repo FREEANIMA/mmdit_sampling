@@ -1,18 +1,15 @@
-import torch
-from networks import load_mmdit_dcae
-from data import TagsCoOC
-from .caclulater import (
-    euler, heun, ddim, ddpm_plus
-)
-
 import os
 from tqdm.auto import tqdm
 from datetime import datetime
+import torch
+from data import TagsCoOC
+
+from networks import load_mmdit_dcae
+from utilities import (
+    euler, heun, ddim, ddpm_plus
+)
 from common import T5TextModel
 from common import VaeModel
-from .attn_stats import (
-    attn_summary, tag_attn_map, stack_log, print_stats
-)
 
 INIT_PROMPT = "general img; "
 
@@ -64,35 +61,20 @@ class Sampling:
         return cond_emb, uncond_emb, cond_mask, uncond_mask
         
     @torch.inference_mode()
-    def steps_sampling(self, x, steps, caculate_type, cfg_scale, cond_emb, uncond_emb, cond_mask, uncond_mask, gen, sigmas, collect_stats=True):
+    def steps_sampling(self, x, steps, caculate_type, cfg_scale, cond_emb, uncond_emb, cond_mask, uncond_mask, gen, sigmas):
         self.model.eval()
 
-        MAX = self.model.max_side
-        n_txt = int(cond_mask.sum().item())
-        h_tok, w_tok = x.shape[2] // self.patch_size, x.shape[3] // self.patch_size
-        log = []   # log[step] = {"step", "sigma", "blocks": {block: summary}}
-        
         try:
             for i in tqdm(range(steps), desc="sampling"):
                 sigma, sigma_next = sigmas[i], sigmas[i + 1]
 
-                v, stats = self.predict(
+                v, _ = self.predict(
                     model=self.model,
                     x=x, sigma=sigma,
                     cond_emb=cond_emb, cond_mask=cond_mask,
                     uncond_emb=uncond_emb, uncond_mask=uncond_mask,
                     cfg_scale=cfg_scale,
-                    collect=collect_stats,
                 )
-
-                # 통계는 매 step 첫 번째 predict(cond)에서만 수집
-                if collect_stats:
-                    row = {
-                        b: attn_summary(s["attn_weights"], h_tok, w_tok, MAX, n_txt)
-                        for b, s in stats.items()
-                    }
-                    log.append({"step": i, "sigma": float(sigma), "blocks": row})
-                del stats
 
                 if caculate_type == "euler":
                     x = euler(x, v, sigma, sigma_next)
@@ -134,7 +116,7 @@ class Sampling:
         finally:
             torch.cuda.empty_cache()
 
-        return x, log
+        return x
     
     @torch.inference_mode()
     def vae_decode(self, x):
@@ -145,7 +127,7 @@ class Sampling:
         return img
 
     @torch.inference_mode()
-    def sampling(self, user_tags, nsfw, caculate_type, cfg_scale, H, W, steps, seed=None, collect_stats=False):       
+    def sampling(self, user_tags, nsfw, caculate_type, cfg_scale, H, W, steps, seed=None):       
         unit = self.f * self.patch_size
 
         if H >= W:
@@ -185,7 +167,7 @@ class Sampling:
         x = noise
         sigmas = self.sigma_schedular(step=steps, device=self.device)
 
-        x, log = self.steps_sampling(
+        x = self.steps_sampling(
             x=x,
             steps=steps,
             caculate_type=caculate_type,
@@ -196,10 +178,8 @@ class Sampling:
             uncond_mask=uncond_mask,
             gen=gen,
             sigmas=sigmas,
-            collect_stats=collect_stats,
         )
         img = self.vae_decode(x)
-
 
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         save_dir = os.path.join(self.base_root, "generation", stamp)
@@ -208,9 +188,5 @@ class Sampling:
 
         img.save(save_img_name)
         print(f"img saved: {save_img_name}")
-
-        if collect_stats:
-            stacked = stack_log(log)
-            print_stats(stacked, stride=1)
         
         return img, save_img_name
