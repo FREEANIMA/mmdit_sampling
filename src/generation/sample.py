@@ -3,13 +3,9 @@ from tqdm.auto import tqdm
 from datetime import datetime
 import torch
 from data import TagsCoOC
-
-from networks import load_mmdit_dcae
 from src.utilities import (
     euler, heun, ddim, ddpm_plus
 )
-from common import T5TextModel
-from common import VaeModel
 
 INIT_PROMPT = "general img; "
 
@@ -21,11 +17,9 @@ class Sampling:
         self.device = "cuda"
         self.dtype=torch.bfloat16
         self.f, self.in_channels, self.patch_size = 32, 32, 2
-        self.model = load_mmdit_dcae()
-        
-        self.model = self.model.to(device=self.device, dtype=self.dtype)
-        self.text_encoder = T5TextModel(device=self.device, dtype=self.dtype)
-        self.vae = VaeModel(device=self.device, dtype=torch.float32)
+        self.model = model
+        self.text_encoder = text_encoder
+        self.vae = vae
 
     def sigma_schedular(self, step, device):
         t = torch.linspace(0.999, 1e-3, step + 1, device=device)
@@ -107,7 +101,7 @@ class Sampling:
                     )
                     x = ddpm_plus(x, v, z, sigma, sigma_next)
                     del z
-                    
+
                 del v
 
         finally:
