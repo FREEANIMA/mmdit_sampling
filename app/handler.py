@@ -17,7 +17,7 @@ class Handler:
         self.device = device
         self.dtype = dtype
 
-        self.model = load_mmdit_dcae().to(device=device, dtype=dtype)
+        self.model, self.config = load_mmdit_dcae().to(device=device, dtype=dtype)
         self.text_encoder = T5TextModel(device=device, dtype=dtype)
         self.vae = VaeModel(device=device, dtype=torch.float32)
 
@@ -27,13 +27,13 @@ class Handler:
     @property
     def sampler(self) -> Sampling:
         if self._sampler is None:
-            self._sampler = Sampling(base_root=self.base_root, model=self.model, text_encoder=self.text_encoder, vae=self.vae)
+            self._sampler = Sampling(base_root=self.base_root, model=self.model, text_encoder=self.text_encoder, vae=self.vae, config=self.config)
         return self._sampler
 
     @property
     def inpainter(self) -> InPaint:
         if self._inpainter is None:
-            self._inpainter = InPaint(base_root=self.base_root, model=self.model, text_encoder=self.text_encoder, vae=self.vae)
+            self._inpainter = InPaint(base_root=self.base_root, model=self.model, text_encoder=self.text_encoder, vae=self.vae, config=self.config)
         return self._inpainter
 
     def generate_txt2img(self, tags_text, nsfw, calc_type, cfg_scale, H, W, steps, seed):

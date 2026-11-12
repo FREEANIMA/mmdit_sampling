@@ -14,13 +14,13 @@ from src.utilities import (
 INIT_PROMPT = "general img; "
 
 class InPaint:
-    def __init__(self, base_root, model, text_encoder, vae):
+    def __init__(self, base_root, model, text_encoder, vae, config):
         self.base_root = base_root
         self.cooc = TagsCoOC(base_root=base_root)
         self.shift: float = 3.0
         self.device = "cuda"
         self.dtype = torch.bfloat16
-        self.f, self.in_channels, self.patch_size = 32, 32, 2
+        self.f, self.in_channels, self.patch_size = config.compression_ratio, config.in_channels, config.patch_size
 
         self.model = model
         self.text_encoder = text_encoder

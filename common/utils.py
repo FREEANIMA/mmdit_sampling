@@ -1,5 +1,7 @@
 import torch
 from tqdm.auto import tqdm
+import gc
+import torch
 
 def default_device():
     return "cuda" if torch.cuda.is_available() else "cpu"
@@ -46,9 +48,7 @@ def load_model(model_class, path):
         del checkpoint, state_dict
         bar.update(1)
 
-    return model
-import gc
-import torch
+    return model, config
 
 def free_cuda(verbose: bool = False) -> None:
     gc.collect()                      # 파이썬 쪽 참조부터 정리
