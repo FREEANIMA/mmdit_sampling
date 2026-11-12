@@ -20,7 +20,9 @@ class InPaint:
         self.shift: float = 3.0
         self.device = "cuda"
         self.dtype = torch.bfloat16
-        self.f, self.in_channels, self.patch_size = config.compression_ratio, config.in_channels, config.patch_size
+        self.f = config["compression_ratio"]
+        self.in_channels = config["in_channels"]
+        self.patch_size = config["patch_size"]
 
         self.model = model
         self.text_encoder = text_encoder

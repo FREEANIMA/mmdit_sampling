@@ -2,9 +2,10 @@ import torch
 import torch.nn as nn
 
 class Rope2D(nn.Module):
-    def __init__(self, rope_hz, check=False):
+    def __init__(self, rope_hz, pos_scale, check=False):
         super().__init__()
         self.rope_hz = rope_hz
+        self.pos_scale= pos_scale
         self.check = check
 
     def _rotate_half(self, x: torch.Tensor) -> torch.Tensor:
@@ -28,8 +29,8 @@ class Rope2D(nn.Module):
             inv_freq = 1.0 / (
                 self.rope_hz ** (torch.arange(0, d, 2, device=dev, dtype=torch.float32) / d)
             )
-            h_idx = torch.arange(H, device=dev, dtype=torch.float32)[:, None].expand(H, W).reshape(-1)
-            w_idx = torch.arange(W, device=dev, dtype=torch.float32)[None, :].expand(H, W).reshape(-1)
+            h_idx = (torch.arange(H, device=dev, dtype=torch.float32) * self.pos_scale)[:, None].expand(H, W).reshape(-1)
+            w_idx = (torch.arange(W, device=dev, dtype=torch.float32) * self.pos_scale)[None, :].expand(H, W).reshape(-1)
 
             cos_h, sin_h = self._cos_sin(h_idx, inv_freq)
             cos_w, sin_w = self._cos_sin(w_idx, inv_freq)

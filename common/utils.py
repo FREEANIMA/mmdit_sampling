@@ -50,14 +50,14 @@ def load_model(model_class, path):
         bar.update(1)
 
     print(f"[config] {model_class.__name__}")
-    pprint(config, sort_dicts=False)   # 저장된 키 순서 그대로 출력
+    pprint(config, sort_dicts=False)
 
     return model, config
 
 def free_cuda(verbose: bool = False) -> None:
-    gc.collect()                      # 파이썬 쪽 참조부터 정리
+    gc.collect()
     if torch.cuda.is_available():
-        torch.cuda.empty_cache()      # 캐시된 블록 반환
+        torch.cuda.empty_cache()
         torch.cuda.ipc_collect()
         if verbose:
             print(f"[cuda] allocated {torch.cuda.memory_allocated()/1024**3:.2f} GB, "

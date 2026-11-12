@@ -9,7 +9,7 @@ from .Rope2D import Rope2D
 from .Block import Block
 
 class Model(nn.Module):
-    def __init__(self, hidden_size, nhead, num_layers, dropout, 
+    def __init__(self, hidden_size, nhead, num_layers, dropout, pos_scale,
                  sigma_emb_hz, in_channels, patch_size, rope_hz, sigma_scale, txt_hidden_size, allowable_size, compression_ratio,
                  check=False, **kwargs):
         super().__init__()
@@ -32,7 +32,8 @@ class Model(nn.Module):
 
         self.rope2d = Rope2D(
             rope_hz=rope_hz,
-            check=check
+            check=check,
+            pos_scale=pos_scale
         )
         
         # sigma
@@ -114,13 +115,23 @@ class Model(nn.Module):
 
         _stats = {}
         for key, block in enumerate(self.blocks):
-            img_emb, txt_emb, stats = block(
-                img_emb=img_emb,
-                txt_emb=txt_emb,
-                **param
-            )
+            if use_checkpoint:
+                img_emb, txt_emb, stats = checkpoint.checkpoint(
+                    block,
+                    img_emb=img_emb,
+                    txt_emb=txt_emb,
+                    **param,
+                    use_reentrant=False
+                )
+            else:
+                img_emb, txt_emb, stats = block(
+                    img_emb=img_emb,
+                    txt_emb=txt_emb,
+                    **param
+                )
+
             _stats[key] = stats
-            
+
         shift, scale = self.final_mod(sigma_norm).chunk(2, dim=-1)
         x_final = self.norm(img_emb)
         x_final = x_final * (1 + scale[:, None, :]) + shift[:, None, :]
