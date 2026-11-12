@@ -20,6 +20,9 @@ def strip_orig_mod(state_dict):
 def load_model(model_class, path):
     checkpoint = torch.load(path, map_location="cpu", weights_only=True, mmap=True)
     params = checkpoint.get("param")
+    if params is None:
+        raise KeyError(f"모델 파라미터 키를 찾지 못했습니다. keys={list(checkpoint.keys())}")
+
     state_dict = None
     for key in ("ema_state_dict", "model_state_dict", "model"):
         if key in checkpoint:
