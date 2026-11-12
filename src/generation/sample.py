@@ -30,19 +30,17 @@ class Sampling:
         return max(round(v / unit), 1) * unit
 
     @torch.inference_mode()
-    def predict(self, model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale, collect=True):
+    def predict(self, model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale):
         x_in = x.to(self.dtype)
         sig = sigma.expand(x.shape[0])
         with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
             cond_out, cond_stats = model.forward(
                 x=x_in, sigma=sig, txt_emb=cond_emb, txt_mask=cond_mask,
-                attn_collects_stats=collect,
             )
             if cfg_scale == 1.0:
                 return cond_out.float(), cond_stats
             uncond_out, _ = model.forward(
                 x=x_in, sigma=sig, txt_emb=uncond_emb, txt_mask=uncond_mask,
-                attn_collects_stats=False,   # uncond는 통계 불필요 -> SDPA 경로(빠름)
             )
         c, u = cond_out.float(), uncond_out.float()
         return u + cfg_scale * (c - u), cond_stats
@@ -88,7 +86,6 @@ class Sampling:
                             cond_emb=cond_emb, cond_mask=cond_mask,
                             uncond_emb=uncond_emb, uncond_mask=uncond_mask,
                             cfg_scale=cfg_scale,
-                            collect=False,
                         )
 
                         x = heun(x, v, v2, sigma, sigma_next)

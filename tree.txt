@@ -1,7 +1,11 @@
 ﻿[app]
+    [ui_assets]
+        layout.html
+        script.js
+        style.css
     __init__.py
-    cli.py
     handler.py
+    ui_colab.py
 [assets]
 [common]
     __init__.py
@@ -42,4 +46,5 @@
 .gitignore
 main.py
 requirements.txt
+tree.txt
 version.py

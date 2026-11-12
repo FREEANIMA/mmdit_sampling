@@ -57,8 +57,7 @@ class ColabUI:
         return self.handler.generate_inpainting(
             img_path=img_path, start_t=float(p.get("start_t", 0.9)), **common
         )
-
-    # ---------- 결과 ----------
+    
     @staticmethod
     def _pil_to_b64(img: Image.Image) -> str:
         buf = io.BytesIO()
@@ -74,8 +73,7 @@ class ColabUI:
                style="max-width:512px; border:1px solid #ccc; margin-top:8px;">
         </div>
         """))
-
-    # ---------- 실행 ----------
+        
     def run(self) -> None:
         self._render_form()
         params = self._wait_for_params()
