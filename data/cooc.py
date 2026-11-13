@@ -9,6 +9,7 @@ NAS = [
     "expression", "composition", "gaze", "sex_act",
 ]
 AUTO, NONE = "__auto__", "__none__"
+REQUIRED = {"style", "person_count", "gender", "hair_color"}
 
 class TagsCoOC:
     def __init__(self, base_root):
@@ -44,10 +45,11 @@ class TagsCoOC:
         w /= w.sum()
         return rng.choice(cand.index.to_numpy(), p=w)
 
-    def tags_mapping_worker(self, user_tags: list, nsfw, H, W,
-                            selection: dict | None = None, seed: int | None = None,
-                            top_n: int = 20, temperature: float = 1.0):
-        selection = selection or {}
+    def tags_mapping_worker(self, user_tags: list, nsfw, H, W,selection: dict | None = None, seed: int | None = None, top_n: int = 20, temperature: float = 1.0):
+        selection = dict(selection or {})
+        for ty in REQUIRED:
+            if selection.get(ty) == NONE:
+                selection[ty] = AUTO
         rng = np.random.default_rng(seed)
 
         nsfw_text = f"nsfw: {str(nsfw).lower()}; "
