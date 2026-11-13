@@ -1,5 +1,6 @@
 from typing import Optional
 import torch
+from data.cooc import AUTO
 
 from src.generation import Sampling, InPaint
 from common import T5TextModel, VaeModel
@@ -24,6 +25,17 @@ class Handler:
 
         self._sampler: Optional[Sampling] = None
         self._inpainter: Optional[InPaint] = None
+
+
+    def get_nas_options(self):
+        return self.sampler.cooc.get_nas_options()
+
+    def generate_txt2img(self, tags_text, nsfw, calc_type, cfg_scale, H, W, steps, seed, nas=None):
+        return self.sampler.sampling(
+            user_tags=_parse_tags(tags_text), nsfw=bool(nsfw), calculate_type=calc_type,
+            cfg_scale=float(cfg_scale), H=int(H), W=int(W), steps=int(steps),
+            seed=_parse_seed(seed), nas=nas or {},
+        )
 
     @property
     def sampler(self) -> Sampling:

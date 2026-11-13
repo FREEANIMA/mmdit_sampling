@@ -3,6 +3,7 @@ from tqdm.auto import tqdm
 from datetime import datetime
 import torch
 from data import TagsCoOC
+import random
 from src.utilities import (
     euler, heun, ddim, ddpm_plus
 )
@@ -117,7 +118,7 @@ class Sampling:
         return img
 
     @torch.inference_mode()
-    def sampling(self, user_tags, nsfw, calculate_type, cfg_scale, H, W, steps, seed=None):       
+    def sampling(self, user_tags, nsfw, calculate_type, cfg_scale, H, W, steps, seed=None, nas=None):       
         unit = self.f * self.patch_size
 
         if H >= W:
@@ -127,24 +128,21 @@ class Sampling:
             scale = 1024 / W
             H, W = self._snap(H * scale, unit=unit), 1024
 
+        if seed is None:
+            seed = random.randint(0, 2**32 - 1)
+        print(f"seed: {seed}")
+
         tags = self.cooc.tags_mapping_worker(
-            user_tags=user_tags, 
-            nsfw=nsfw,
-            H=H, W=W
+            user_tags=user_tags, nsfw=nsfw, H=H, W=W,
+            selection=nas, seed=seed,
         )
 
-        print(f"tags: {tags}")
-        
+        gen = torch.Generator(device=self.device)
+        gen.manual_seed(seed)
+
         cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
         print(f"cond_emb: {cond_emb.shape}")
         print(f"uncond_emb: {uncond_emb.shape}")
-
-
-        gen = torch.Generator(device=self.device)
-        if seed is not None:
-            gen.manual_seed(seed)
-        else:
-            gen.seed()
 
         # dc ae 전용
         noise = torch.randn(

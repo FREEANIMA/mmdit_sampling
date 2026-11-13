@@ -6,7 +6,7 @@
       <option value="inpainting">inpainting</option>
     </select>
   </div>
-  <div class="ui-row"><label>Tags</label><input id="tags" placeholder="예: 1girl, cinematic, ..."></div>
+  <div class="ui-row"><label>Tags</label><input id="tags" placeholder="예: woman, cinematic, ..."></div>
   <div class="ui-row">
     <label>NSFW</label>
     <select id="nsfw"><option value="false">n</option><option value="true">y</option></select>
@@ -20,6 +20,11 @@
   <div class="ui-row"><label>CFG</label><input id="cfg" value="4.0"></div>
   <div class="ui-row"><label>Steps</label><input id="steps" value="30"></div>
   <div class="ui-row"><label>Seed</label><input id="seed" value="-1"></div>
+
+  <details class="nas-box" open>
+    <summary>Attributes (auto = 랜덤 추천 / none = 사용 안 함)</summary>
+    <div id="nas"></div>
+  </details>
 
   <div id="txt2img-box">
     <div class="ui-row"><label>H</label><input id="H" value="1024"></div>

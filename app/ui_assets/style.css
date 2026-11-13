@@ -5,3 +5,5 @@
 .ui-btns { margin-top: 10px; }
 .ui-btns button { padding: 6px 14px; margin-right: 6px; cursor: pointer; }
 #out { margin-top: 12px; font-size: 13px; color: #333; white-space: pre-wrap; }
+.nas-box { margin: 8px 0; }
+.nas-box summary { cursor: pointer; font-weight: 600; }

@@ -1,104 +1,97 @@
 import os
+import numpy as np
 import pandas as pd
 
 INIT_PROMPT = "general img; "
 NAS = [
     "style", "person_count", "gender", "hair_color", "hair_length", "hair_style",
-    "eye_color","body_type", "clothing", "accessory", "background", "pose", "expression", "composition",
-    "gaze", "sex_act"
+    "eye_color", "body_type", "clothing", "accessory", "background", "pose",
+    "expression", "composition", "gaze", "sex_act",
 ]
+AUTO, NONE = "__auto__", "__none__"
 
 class TagsCoOC:
     def __init__(self, base_root):
-        vocab_matrix_path = os.path.join(base_root, "data", "metadata", "vocab_matrix.parquet")
-        tags_type_path = os.path.join(base_root, "data", "metadata", "tags_type.parquet")
-        self.co_df = pd.read_parquet(vocab_matrix_path)
-        self.tags_type_df = pd.read_parquet(tags_type_path)        
+        self.co_df = pd.read_parquet(os.path.join(base_root, "data", "metadata", "vocab_matrix.parquet"))
+        self.tags_type_df = pd.read_parquet(os.path.join(base_root, "data", "metadata", "tags_type.parquet"))
 
-    def recommend(self, user_tags, top_k=30, special_top_k=1000, debug=False):
-        valid = [t for t in user_tags if t in self.co_df.index]
+        # 매 호출마다 만들던 것을 한 번만 생성
+        self.dup_map = dict(zip(self.tags_type_df["tag"], self.tags_type_df["dup"]))
+        self.type_map = dict(zip(self.tags_type_df["tag"], self.tags_type_df["type"]))
+        self.type_series = pd.Series(self.type_map)
+
+    def get_nas_options(self) -> dict[str, list[str]]:
+        """UI 드롭다운용: type -> 태그 목록"""
+        g = self.tags_type_df.groupby("type")["tag"].apply(lambda s: sorted(set(s))).to_dict()
+        return {k: g.get(k, []) for k in NAS}
+
+    def _scores(self, valid_tags):
+        valid = [t for t in valid_tags if t in self.co_df.index]
         if not valid:
-            return []
+            return pd.Series(dtype=float)
+        s = self.co_df.loc[valid].min(axis=0)      # 모든 조건 태그와 동시에 연관된 정도
+        return s.drop(labels=valid, errors="ignore")
 
-        SPECIAL = {"general", "nsfw"}
+    def _sample_one(self, scores, ty, rng, top_n=20, temperature=1.0):
+        if scores.empty:
+            return None
+        types = self.type_series.reindex(scores.index).values
+        cand = scores[(types == ty) & (scores.values > 0)]
+        cand = cand.sort_values(ascending=False).head(top_n)
+        if cand.empty:
+            return None
+        w = cand.values.astype(float) ** (1.0 / temperature)
+        w /= w.sum()
+        return rng.choice(cand.index.to_numpy(), p=w)
 
-        per_tag_sets = []
-        for t in valid:
-            row = self.co_df.loc[t].drop(labels=valid, errors="ignore")
-            row = row[row > 0].sort_values(ascending=False)
-            k = special_top_k if t in SPECIAL else top_k   # special은 넓게
-            per_tag_sets.append(set(row.head(k).index))
+    def tags_mapping_worker(self, user_tags: list, nsfw, H, W,
+                            selection: dict | None = None, seed: int | None = None,
+                            top_n: int = 20, temperature: float = 1.0):
+        selection = selection or {}
+        rng = np.random.default_rng(seed)
 
-        common = set.intersection(*per_tag_sets) if per_tag_sets else set()
-
-        scores = self.co_df.loc[valid].min(axis=0)
-        scores = scores[scores.index.isin(common)]
-        scores = scores.sort_values(ascending=False).head(top_k)
-
-        if debug:
-            print("valid:", valid)
-            for t, s in zip(valid, per_tag_sets):
-                print(f"[{t}] set size={len(s)}")
-            print("common size:", len(common))
-            print("top:", scores.index.tolist()[:20])
-
-        return scores.index.tolist()
-    
-    def tags_mapping_worker(self, user_tags: list, nsfw, H, W):
         nsfw_text = f"nsfw: {str(nsfw).lower()}; "
         size_text = f"size: {H}x{W}; "
         nsfw_str = "nsfw" if nsfw is True else "general"
 
         tag_list = [t.replace("_", " ") for t in user_tags]
 
-        mapping = dict(zip(self.tags_type_df["tag"], self.tags_type_df["dup"]))
-        type_mapping = dict(zip(self.tags_type_df["tag"], self.tags_type_df["type"]))
-        
-        # vocab에 있는 태그
-        include_tags = [t for t in tag_list if t in mapping]
-        include_type = [type_mapping[t] for t in tag_list if t in type_mapping]
-        include_tags_dict = {t: type_mapping[t] for t in tag_list if t in type_mapping}
+        # 1) 유저가 직접 입력한 태그
+        include_dict = {t: self.type_map[t] for t in tag_list if t in self.type_map}
+        exclude_dict = {t: "others" for t in tag_list if t not in self.dup_map}
 
-        # 한번도 보지 못한 태그
-        exclude_tags_dict = {t: "others" for t in tag_list if t not in mapping}
+        # 2) UI에서 직접 고른 태그
+        picked = {}
+        for ty in NAS:
+            v = selection.get(ty, AUTO)
+            if v not in (AUTO, NONE, "", None):
+                picked[v] = ty
+        include_dict.update(picked)
 
-        # 한번도 사용하지 않은 필수 type
-        unused_type = [x for x in NAS if x not in include_type]
+        # 3) 자동으로 채울 type: auto 이면서 아직 비어있는 것
+        filled = set(include_dict.values())
+        auto_types = [ty for ty in NAS
+                      if selection.get(ty, AUTO) in (AUTO, "", None) and ty not in filled]
+        rng.shuffle(auto_types)   # 항상 같은 type이 먼저 뽑혀서 쏠리는 것 방지
 
-        # co oc로 측정한 연관된 top tag (자기 자신 제외)
-        mapped_include = [mapping[t] for t in include_tags] + [nsfw_str]
-        top_tags_list = self.recommend(user_tags=mapped_include, top_k=100, special_top_k=500 ,debug=False)
+        # 4) 하나 뽑을 때마다 조건에 추가 -> 뒤에 뽑는 태그가 앞선 선택과 어울리게
+        cond = [self.dup_map[t] for t in include_dict if t in self.dup_map] + [nsfw_str]
+        auto_dict = {}
+        for ty in auto_types:
+            tag = self._sample_one(self._scores(cond), ty, rng, top_n, temperature)
+            if tag is not None:
+                auto_dict[tag] = ty
+                cond.append(self.dup_map.get(tag, tag))
 
-        # top tag 중 type별 하나 씩 필터
-        top_tags_type_dict = {t: type_mapping[t] for t in top_tags_list if t in type_mapping}
-
-        unused_set = set(unused_type)
-
-        seen = set()
-        dedup_dict = {}
-        for t, ty in top_tags_type_dict.items():
-            if ty in unused_set and ty not in seen:
-                seen.add(ty)
-                dedup_dict[t] = ty
-
-        total = {**include_tags_dict, **dedup_dict, **exclude_tags_dict}
+        total = {**include_dict, **auto_dict, **exclude_dict}
 
         text = ""
         for key in NAS:
             tags = [t for t, ty in total.items() if ty == key]
             if tags:
                 text += f"{key}: {', '.join(tags)}; "
-                        
         for key in set(total.values()) - set(NAS):
             tags = [t for t, ty in total.items() if ty == key]
             text += f"{key}: {', '.join(tags)}; "
 
-        total = INIT_PROMPT + nsfw_text + size_text + text
-
-        return total
-
-def test_code():
-    tag_co = TagsCoOC(base_root=r"C:\Users\HONG\Desktop\inquiry\mmdit_dcae_sampling")
-    user_tags = ["woman", "solo"]
-    total = tag_co.tags_mapping_worker(user_tags=user_tags, nsfw=False, H="1024", W="768")
-    print(total)
+        return INIT_PROMPT + nsfw_text + size_text + text

@@ -45,6 +45,7 @@
 .env
 .gitignore
 main.py
+READEME.md
 requirements.txt
 tree.txt
 version.py

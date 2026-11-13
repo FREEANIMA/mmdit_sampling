@@ -22,6 +22,7 @@ class ColabUI:
 
     - 폼은 한 번만 그리고, Generate 를 누를 때마다 결과 영역만 갱신
     - 생성 중에는 버튼 비활성화, 끝나면 다시 활성화
+    - NAS(속성) 옵션은 handler 에서 읽어 script.js 보다 먼저 주입
     - 종료: 셀 정지(■) 버튼 (KeyboardInterrupt)
     """
 
@@ -36,11 +37,23 @@ class ColabUI:
     def _read_asset(self, name: str) -> str:
         return (self.ASSET_DIR / name).read_text(encoding="utf-8")
 
+    def _nas_options_script(self) -> str:
+        """window.NAS_OPTIONS 주입용 <script>. script.js 보다 먼저 실행돼야 함."""
+        options = self.handler.get_nas_options()
+        payload = json.dumps(options, ensure_ascii=False)
+        payload = payload.replace("</", "<\\/")  # 태그 안에 </script> 가 들어가도 깨지지 않게
+        return f"<script>window.NAS_OPTIONS = {payload};</script>"
+
     def _render_form(self) -> None:
         css = self._read_asset("style.css")
         layout = self._read_asset("layout.html")
         js = self._read_asset("script.js")
-        display(HTML(f"<style>{css}</style>\n{layout}\n<script>{js}</script>"))
+        display(HTML(
+            f"<style>{css}</style>\n"
+            f"{layout}\n"
+            f"{self._nas_options_script()}\n"
+            f"<script>{js}</script>"
+        ))
         # 결과가 표시될 자리 (폼 아래, 이후 update 로 계속 교체)
         self._result_area = display(HTML("<div></div>"), display_id=True)
         eval_js("window.ui_params = null")
@@ -70,6 +83,7 @@ class ColabUI:
             cfg_scale=float(p["cfg"]),
             steps=int(p["steps"]),
             seed=int(seed_text) if seed_text else -1,  # -1 이면 랜덤 시드
+            nas=p.get("nas") or {},                    # {type: "__auto__" | "__none__" | tag}
         )
 
         if p["mode"] == "txt2img":
