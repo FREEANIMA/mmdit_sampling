@@ -10,11 +10,12 @@ from networks import load_tags_llm
 INIT_PROMPT = "general img; "
 
 class TagGenration:
-    def __init__(self, base_root, vocab_path, device="cuda", dtype=torch.bfloat16):
-        tags_type_df = pd.read_parquet(os.path.join(base_root, "data", "metadata", "tags_type.parquet"))
-        self.text_model, self.text_config, self.vocab_path = load_tags_llm()
+    def __init__(self, vocab_path, device="cuda", dtype=torch.bfloat16):
+        self.text_model, _, vocab_path, tags_type_path = load_tags_llm()
         self.text_model = self.text_model.to(device=device, dtype=dtype)
         self.text_model.eval()
+
+        tags_type_df = pd.read_parquet(tags_type_path)
 
         self.type_map, self.dup_map = self.build_tag_maps(tags_type_df=tags_type_df)
         with open(vocab_path, "r", encoding="utf-8") as f:
