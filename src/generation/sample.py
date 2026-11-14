@@ -2,7 +2,6 @@ import os
 from tqdm.auto import tqdm
 from datetime import datetime
 import torch
-from tags_llm import TagsCoOC
 import random
 from src.utilities import euler, heun, ddim, ddpm_plus
 
@@ -11,7 +10,6 @@ INIT_PROMPT = "general img; "
 class Sampling:
     def __init__(self, base_root, model, text_encoder, vae, config):
         self.base_root = base_root
-        self.cooc = TagsCoOC(base_root=base_root)
         self.shift: float = 3.0
         self.device = "cuda"
         self.dtype=torch.bfloat16
