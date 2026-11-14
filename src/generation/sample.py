@@ -2,11 +2,9 @@ import os
 from tqdm.auto import tqdm
 from datetime import datetime
 import torch
-from data import TagsCoOC
+from tags_llm import TagsCoOC
 import random
-from src.utilities import (
-    euler, heun, ddim, ddpm_plus
-)
+from src.utilities import euler, heun, ddim, ddpm_plus
 
 INIT_PROMPT = "general img; "
 
@@ -118,8 +116,7 @@ class Sampling:
         return img
 
     @torch.inference_mode()
-    def sampling(self, user_tags, nsfw, calculate_type, cfg_scale, H, W, steps,
-                 seed=None, nas=None):
+    def sampling(self, user_tags, nsfw, calculate_type, cfg_scale, H, W, steps, seed=None, nas=None):
         unit = self.f * self.patch_size
 
         if H >= W:

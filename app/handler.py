@@ -3,7 +3,7 @@ import torch
 
 from src.generation import Sampling, InPaint
 from common import T5TextModel, VaeModel
-from networks import load_mmdit_dcae
+from networks import load_mmdit_dcae, load_tags_llm
 
 
 def _parse_tags(tags_text: str) -> list[str]:
@@ -63,8 +63,7 @@ class Handler:
             nas=nas or {},
         )
 
-    def generate_inpainting(self, tags_text, nsfw, calc_type, cfg_scale, steps, seed,
-                            img_path, start_t: float = 0.9, nas=None):
+    def generate_inpainting(self, tags_text, nsfw, calc_type, cfg_scale, steps, seed, img_path, start_t: float = 0.9, nas=None):
         return self.inpainter.sampling(
             user_tags=_parse_tags(tags_text),
             nsfw=bool(nsfw),

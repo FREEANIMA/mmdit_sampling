@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from tqdm.auto import tqdm
 from PIL import Image
-from data import TagsCoOC
+from tags_llm import TagsCoOC
 
 from src.utilities import (
     euler, heun, ddim, ddpm_plus, img_resize, draw_mask_colab
